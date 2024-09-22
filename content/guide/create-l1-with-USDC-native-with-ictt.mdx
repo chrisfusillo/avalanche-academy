@@ -1,0 +1,616 @@
+#Creating an Avalanche L1 with USDC as the Native Token Using Avalanche Interchain Token Transfer (ICTT)
+
+## Introduction
+
+Building a Layer 1 (L1) blockchain can feel daunting, especially when incorporating essential features like native tokens and cross-chain interoperability. In this article, we’ll walk through the process of creating a custom Avalanche L1 with bridged USDC as its native token, utilizing the Avalanche Interchain Token Transfer (ICTT) protocol to enable seamless cross-chain functionality.
+
+We’ll cover the basics of ICTT and how it integrates into the Avalanche ecosystem, explain how USDC can become your L1's native token, and outline a simplified version of the process that doesn’t get too technical but still gives you the key details to succeed.
+
+Why Use Avalanche and USDC? Avalanche is known for its speed, security, and scalability. It provides a powerful platform for creating customizable subnets—L1 chains—where each can have its own tokenomics and consensus mechanism. For this tutorial, we’ll use USDC, a stablecoin backed by fiat reserves and supported by Circle, as our native token. The reason for choosing USDC is its stability, widespread use, and trustworthiness in decentralized finance (DeFi) ecosystems.
+
+What is Avalanche Interchain Token Transfer (ICTT)? Interchain Token Transfer (ICTT) is a key feature of the Avalanche Network that enables tokens to move seamlessly between multiple chains, whether they are Avalanche subnets or other blockchains. With ICTT, a token such as USDC can move across different Avalanche subnets and external chains while maintaining its value and functionality.
+
+For example, if your L1 is part of an Avalanche subnet, you can use ICTT to move USDC from the Avalanche C-Chain to your L1 or between other subnets.
+
+You can read more about ICTT in detail on the [Avalanche Academy ICTT Course](https://academy.avax.network/course/interchain-token-transfer).
+
+In this tutorial, we'll walk through the process of creating an Avalanche L1 where USDC is the native gas token. We'll use the Avalanche Interchain Token Transferer system and Foundry to bring it all together.
+
+Note: Avalanche is updating its terminology. What is currently called a "subnet" will soon be referred to as an "L1" or "Blockchain". However, for consistency with the current Avalanche CLI and the Avalanche Starter Kit, this tutorial will continue to use the term "subnet" in some instances.
+
+## Use the Avalanche Starter Kit
+
+For a comprehensive setup to develop Solidity smart contracts and dApps on Avalanche, consider using the Avalanche Starter Kit. This kit provides essential tools for building cross-L1 dApps using Teleporter, including Avalanche CLI, Foundry, and example contracts.
+
+This guide is designed to work with the Avalanche Starter Kit, offering complementary information and steps to enhance your development experience on the Avalanche network.
+
+Clone the Avalanche Starter Kit repository:
+
+```bash
+git clone https://github.com/ava-labs/avalanche-starter-kit.git
+cd avalanche-starter-kit
+```
+
+The starter kit includes:
+
+- Avalanche CLI
+- Foundry (Forge and Cast)
+- Teleporter contracts
+- AWM Relayer
+- Example contracts
+
+You can run the starter kit using GitHub Codespaces or locally with Docker and VS Code. For detailed setup instructions, refer to the [Avalanche Starter Kit README](https://github.com/ava-labs/avalanche-starter-kit/blob/main/README.md).
+
+Now that you have the prerequisites set up, let's proceed with creating an Avalanche L1 with USDC as the native token.
+
+## Why Use USDC as a Gas Token?
+
+Using USDC as a gas token offers two main advantages:
+
+1. **Stability**: As a stablecoin, USDC provides predictable gas fees.
+2. **Familiarity**: Users already familiar with USDC will find it intuitive.
+
+## Step 1: Set Up a Subnet
+
+First, let's create an Avalanche subnet:
+
+```bash
+avalanche blockchain create mysubnet
+```
+
+Important considerations with local testnets:
+
+- For local testing, teleporter contracts are depoloyed by default
+- A AWM Relayer will be provided by the Avalanche CLI
+- Configure airdrop tokens (100 tokens to the default ewoq address is good for USDC Native Bridge testing)
+- Enable Native Minter Precompile for your admin address
+
+After deployment, you'll see output similar to:
+
+```bash
+✔ Subnet-EVM
+✔ Use latest release version
+✔ Yes
+✔ Yes
+creating genesis for subnet mysubnet
+Enter your subnets ChainId. It can be any positive integer.
+ChainId: 12345
+Select a symbol for your subnets native token
+Token symbol: USDC
+Low disk use    / Low Throughput    1.5 mil gas/s (C-Chains setting)
+✔ Customize your airdrop
+Address to airdrop to: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC
+Amount to airdrop (in USDC units): 100
+✔ No
+✔ Yes
+✔ Native Minting
+✔ Add
+Enter Address : 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC
+✔ Done
+✔ Done
+✔ Done
+✔ No
+✓ Successfully created subnet configuration
+```
+
+Let's get some information about our new subnet:
+
+```bash
+avalanche blockchain describe mysubnet
+```
+
+You should see an output similar to:
+
+```bash
++------------------------------------------------------------------+
+|                             MYSUBNET                             |
++------------+-----------------------------------------------------+
+| Name       | mysubnet                                            |
++------------+-----------------------------------------------------+
+| VM ID      | qDNsVQJfGpi2RfCcESbeZauGqPVjtXwoopVMtrGkdoUxmFKov   |
++------------+-----------------------------------------------------+
+| VM Version | v0.6.10                                             |
++------------+-----------------------------------------------------+
+
++---------------------------+
+|           TOKEN           |
++--------------+------------+a
+| Token Name   | USDC Token |
++--------------+------------+
+| Token Symbol | USDC       |
++--------------+------------+
+
++------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                         INITIAL TOKEN ALLOCATION                                                         |
++--------------------------+------------------------------------------------------------------+----------------+---------------------------+
+| DESCRIPTION              | ADDRESS AND PRIVATE KEY                                          | AMOUNT (10^18) | AMOUNT (WEI)              |
++--------------------------+------------------------------------------------------------------+----------------+---------------------------+
+| cli-teleporter-deployer  | 0x0fAF8840B1D2e6097BB64dd50b6EdB2adF35879B                       | 600            | 600000000000000000000     |
+| Teleporter Deploys       | 82af92c83bdfa5be852455cd74f99bbf2359110668aee1e7a183f57cf101fce7 |                |                           |
++--------------------------+------------------------------------------------------------------+----------------+---------------------------+
+| Main funded account EWOQ | 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC                       | 1000000        | 1000000000000000000000000 |
+|                          | 56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027 |                |                           |
++--------------------------+------------------------------------------------------------------+----------------+---------------------------+
+
++----------------------------------------------------------------------+
+|                      INITIAL PRECOMPILE CONFIGS                      |
++------------+-----------------+-------------------+-------------------+
+| PRECOMPILE | ADMIN ADDRESSES | MANAGER ADDRESSES | ENABLED ADDRESSES |
++------------+-----------------+-------------------+-------------------+
+| Warp       | n/a             | n/a               | n/a               |
++------------+-----------------+-------------------+-------------------+
+```
+
+Make note of this information for later use.
+
+Now, let's deploy the blockchain to the Local Network.
+
+```bash
+avalanche blockchain deploy mysubnet
+```
+
+You should see an output similar to:
+
+```
+✔ Local Network
+Deploying [mysubnet] to Local Network
+Backend controller started, pid: 13504, output at: /home/vscode/.avalanche-cli/runs/server_20240922_123454/avalanche-cli-backend.log
+Installing avalanchego-v1.11.11...
+avalanchego-v1.11.11 installation successful
+
+Booting Network. Wait until healthy...
+Node logs directory: /home/vscode/.avalanche-cli/runs/network_20240922_123457/node<i>/logs
+Network ready to use.
+
+Deploying Blockchain. Wait until network acknowledges...
+
+Teleporter Messenger successfully deployed to c-chain (0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf)
+Teleporter Registry successfully deployed to c-chain (0x17aB05351fC94a1a67Bf3f56DdbB941aE6c63E25)
+
+Teleporter Messenger successfully deployed to mysubnet (0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf)
+Teleporter Registry successfully deployed to mysubnet (0x0b8609423f43c53586D8F54cd4e6507BDE18692A)
+
+using awm-relayer version (v1.4.0)
+Installing AWM-Relayer v1.4.0
+Executing AWM-Relayer...
+
+Blockchain ready to use
+
++---------------------------------------------------------------------------------------------------------------+
+|                                                    MYSUBNET                                                   |
++---------------+-----------------------------------------------------------------------------------------------+
+| Name          | mysubnet                                                                                      |
++---------------+-----------------------------------------------------------------------------------------------+
+| VM ID         | qDNsVQJfGpi2RfCcESbeZauGqPVjtXwoopVMtrGkdoUxmFKov                                             |
++---------------+-----------------------------------------------------------------------------------------------+
+| VM Version    | v0.6.10                                                                                       |
++---------------+--------------------------+--------------------------------------------------------------------+
+| Local Network | ChainID                  | 11111                                                              |
+|               +--------------------------+--------------------------------------------------------------------+
+|               | SubnetID                 | 2AKbBT8jFUfUsUJ2hhRiDUnAAajJdNhTKeNgEe3q77spMj1N8F                 |
+|               +--------------------------+--------------------------------------------------------------------+
+|               | Owners (Threhold=1)      | P-custom18jma8ppw3nhx5r4ap8clazz0dps7rv5u9xde7p                    |
+|               +--------------------------+--------------------------------------------------------------------+
+|               | BlockchainID (CB58)      | 2ESZQhTmwBcbGWqapq8GFYGDxqJwZ7XmZ8MFJjTmDRz1qCpfFm                 |
+|               +--------------------------+--------------------------------------------------------------------+
+|               | BlockchainID (HEX)       | 0xa236fba3abca0962e30de49eb9ff0241ac92539e3191ca33d95ed2320a7172e1 |
++---------------+--------------------------+--------------------------------------------------------------------+
+
++-------------------------------------------------------------------------------------------+
+|                                         TELEPORTER                                        |
++---------------+------------------------------+--------------------------------------------+
+| Local Network | Teleporter Messenger Address | 0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf |
+|               +------------------------------+--------------------------------------------+
+|               | Teleporter Registry Address  | 0x0b8609423f43c53586D8F54cd4e6507BDE18692A |
++---------------+------------------------------+--------------------------------------------+
+
++---------------------------+
+|           TOKEN           |
++--------------+------------+
+| Token Name   | USDC Token |
++--------------+------------+
+| Token Symbol | USDC       |
++--------------+------------+
+
++------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                         INITIAL TOKEN ALLOCATION                                                         |
++--------------------------+------------------------------------------------------------------+----------------+---------------------------+
+| DESCRIPTION              | ADDRESS AND PRIVATE KEY                                          | AMOUNT (10^18) | AMOUNT (WEI)              |
++--------------------------+------------------------------------------------------------------+----------------+---------------------------+
+| cli-teleporter-deployer  | 0x0fAF8840B1D2e6097BB64dd50b6EdB2adF35879B                       | 600            | 600000000000000000000     |
+| Teleporter Deploys       | 82af92c83bdfa5be852455cd74f99bbf2359110668aee1e7a183f57cf101fce7 |                |                           |
++--------------------------+------------------------------------------------------------------+----------------+---------------------------+
+| Main funded account EWOQ | 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC                       | 1000000        | 1000000000000000000000000 |
+|                          | 56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027 |                |                           |
++--------------------------+------------------------------------------------------------------+----------------+---------------------------+
+
++----------------------------------------------------------------------+
+|                      INITIAL PRECOMPILE CONFIGS                      |
++------------+-----------------+-------------------+-------------------+
+| PRECOMPILE | ADMIN ADDRESSES | MANAGER ADDRESSES | ENABLED ADDRESSES |
++------------+-----------------+-------------------+-------------------+
+| Warp       | n/a             | n/a               | n/a               |
++------------+-----------------+-------------------+-------------------+
+
++-------------------------------------------------------------------------------------------------+
+|                                        MYSUBNET RPC URLS                                        |
++-----------+-------------------------------------------------------------------------------------+
+| Localhost | http://127.0.0.1:9650/ext/bc/mysubnet/rpc                                           |
+|           +-------------------------------------------------------------------------------------+
+|           | http://127.0.0.1:9650/ext/bc/2ESZQhTmwBcbGWqapq8GFYGDxqJwZ7XmZ8MFJjTmDRz1qCpfFm/rpc |
++-----------+-------------------------------------------------------------------------------------+
+
++--------------------------------------------------------------------------+
+|                                   NODES                                  |
++-------+------------------------------------------+-----------------------+
+| NAME  | NODE ID                                  | LOCALHOST ENDPOINT    |
++-------+------------------------------------------+-----------------------+
+| node1 | NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg | http://127.0.0.1:9650 |
++-------+------------------------------------------+-----------------------+
+| node2 | NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ | http://127.0.0.1:9652 |
++-------+------------------------------------------+-----------------------+
+| node3 | NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN | http://127.0.0.1:9654 |
++-------+------------------------------------------+-----------------------+
+| node4 | NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu | http://127.0.0.1:9656 |
++-------+------------------------------------------+-----------------------+
+| node5 | NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5 | http://127.0.0.1:9658 |
++-------+------------------------------------------+-----------------------+
+
++-------------------------------------------------------------+
+|                      WALLET CONNECTION                      |
++-----------------+-------------------------------------------+
+| Network RPC URL | http://127.0.0.1:9650/ext/bc/mysubnet/rpc |
++-----------------+-------------------------------------------+
+| Network Name    | mysubnet                                  |
++-----------------+-------------------------------------------+
+| Chain ID        | 11111                                     |
++-----------------+-------------------------------------------+
+| Token Symbol    | USDC                                      |
++-----------------+-------------------------------------------+
+| Token Name      | USDC Token                                |
++-----------------+-------------------------------------------+
+```
+
+Export the Teleporter Registry address to your environment:
+
+```bash
+export TELEPORTER_REGISTRY_SUBNET=0xYourTeleporterRegistryAddress
+```
+
+Export the Subnet Blockchain ID:
+
+```bash
+export SUBNET_BLOCKCHAIN_ID_HEX=yoursubnetblockchainid
+```
+
+Your now ready to start interacting with your local blockchain.
+
+## Step 2: Deploy USDC Test Contract on the Local C-Chain
+
+Now, let's deploy USDC on the Local C-Chain. Remember, USDC uses 6 decimals instead of the usual 18.
+
+The private key variable should be setup for you:
+
+```bash
+echo $PK
+```
+
+Note this is the ewok account, which is for the purposes of the tutorial and should never be used in anything beyond this tutorial.
+
+Create and deploy the USDC token contract:
+
+```solidity
+// SPDX-License-Identifier: MIT
+// Compatible with OpenZeppelin Contracts ^5.0.0
+pragma solidity ^ 0.8.18;
+
+import "@openzeppelin/contracts@4.8.1/token/ERC20/ERC20.sol";
+
+/* this is an example ERC20 token called USDC */
+
+contract USDC is ERC20 {
+    constructor() ERC20("USDC", "USDC") {
+        _mint(msg.sender, 1000000 * 10 ** 6);
+    }
+}
+```
+
+Deploy using Foundry:
+
+```bash
+forge create --rpc-url local-c --private-key $PK src/ERC20.sol:USDC
+```
+
+You should see an output similar to:
+
+```bash
+[⠊] Compiling...
+No files changed, compilation skipped
+Deployer: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC
+Deployed to: 0x5DB9A7629912EBF95876228C24A848de0bfB43A9
+Transaction hash: 0x62504aee0880ffe5c1156998eb23dd79b5a28265b5bcfab731b239ae03c5900d
+```
+
+Save the deployed contract address:
+
+```bash
+export ERC20_HOME_C_CHAIN=0xYourDeployedContractAddress
+```
+
+Check your USDC balance:
+
+```bash
+cast call --rpc-url local-c --private-key $PK $ERC20_HOME_C_CHAIN "balanceOf(address)(uint)" $FUNDED_ADDRESS
+```
+
+## Step 3: Deploy Interchain Token Transferer Contracts
+
+We need two key contracts:
+
+1. ERC20TokenHome on the C-Chain
+2. NativeTokenRemote on the subnet
+
+Deploy ERC20TokenHome on the C-Chain:
+
+```bash
+forge create --rpc-url local-c --private-key $PK lib/avalanche-interchain-token-transfer/contracts/src/TokenHome/ERC20TokenHome.sol:ERC20TokenHome --constructor-args $TELEPORTER_REGISTRY_C_CHAIN $FUNDED_ADDRESS $ERC20_HOME_C_CHAIN 6
+```
+
+You should see an output similar to:
+
+```bash
+[⠊] Compiling...
+[⠒] Compiling 22 files with Solc 0.8.18
+[⠘] Solc 0.8.18 finished in 1.55s
+Compiler run successful!
+Deployer: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC
+Deployed to: 0x4Ac1d98D9cEF99EC6546dEd4Bd550b0b287aaD6D
+Transaction hash: 0x3ae48b78cfcb98dead5d8613f7382e06e143566ed83f85ab128d87438262bc42
+```
+
+Save the address:
+
+```bash
+export ERC20_HOME_TRANSFERER_C_CHAIN=0xYourERC20TokenHomeAddress
+```
+
+Deploy NativeTokenRemote on the subnet:
+
+```bash
+forge create --rpc-url mysubnet --private-key $PK lib/avalanche-interchain-token-transfer/contracts/src/TokenRemote/NativeTokenRemote.sol:NativeTokenRemote --constructor-args \
+"($TELEPORTER_REGISTRY_SUBNET,$FUNDED_ADDRESS,$C_CHAIN_BLOCKCHAIN_ID_HEX,$ERC20_HOME_TRANSFERER_C_CHAIN,6)" "USDC" 1000000 0
+```
+
+You should see an output similar to:
+
+```bash
+[⠊] Compiling...
+No files changed, compilation skipped
+Deployer: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC
+Deployed to: 0xCB5bf91D236ebe6eF6AE57342570884234bd11Cc
+Transaction hash: 0x975396d200d74b14976ab06fef68e1bd2e93fe05b74be133f5c5c79d3bde062b
+```
+
+Save the address:
+
+```bash
+export NATIVE_TOKEN_REMOTE_SUBNET=0xYourNativeTokenRemoteAddress
+```
+
+## Step 4: Grant Minting Rights and Register the Remote Token
+
+Grant minting rights to the NativeTokenRemote contract:
+
+```bash
+cast send --rpc-url mysubnet --private-key $PK 0x0200000000000000000000000000000000000001 "setEnabled(address)" $NATIVE_TOKEN_REMOTE_SUBNET
+```
+
+You should see an output similar to:
+
+```bash
+blockHash               0x22c1800a37ee112cf97eb9f0b74765e1ff88700c24c603fa09084fa59d7c7e7a
+blockNumber             6
+contractAddress
+cumulativeGasUsed       21432
+effectiveGasPrice       25000000001
+from                    0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC
+gasUsed                 21432
+logs                    []
+logsBloom               0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+root
+status                  1 (success)
+transactionHash         0x619442af1975cbcedc4cd02d0b22ee661b8bdb2798bdc5d60e78c60dbf0742ec
+transactionIndex        0
+type                    2
+blobGasPrice
+blobGasUsed
+authorizationList
+to                      0x0200000000000000000000000000000000000001
+```
+
+Register the remote token:
+
+```bash
+cast send --rpc-url mysubnet --private-key $PK $NATIVE_TOKEN_REMOTE_SUBNET "registerWithHome((address, uint256))" "(0x0000000000000000000000000000000000000000, 0)"
+```
+
+## Step 5: Add Collateral and Send USDC Cross-Chain
+
+Approve the ERC20 and add collateral to the ERC20TokenHome contract:
+
+```bash
+cast send --rpc-url local-c --private-key $PK $ERC20_HOME_C_CHAIN "approve(address, uint256)" $ERC20_HOME_TRANSFERER_C_CHAIN 1000000
+
+cast send --rpc-url local-c --private-key $PK $ERC20_HOME_TRANSFERER_C_CHAIN "addCollateral(bytes32, address, uint256)" $SUBNET_BLOCKCHAIN_ID_HEX $NATIVE_TOKEN_REMOTE_SUBNET 1000000
+```
+
+Send USDC from C-Chain to subnet:
+
+```bash
+cast send --rpc-url local-c --private-key $PK $ERC20_HOME_TRANSFERER_C_CHAIN "send((bytes32, address, address, address, uint256, uint256, uint256, address), uint256)" "(${SUBNET_BLOCKCHAIN_ID_HEX}, ${NATIVE_TOKEN_REMOTE_SUBNET}, ${FUNDED_ADDRESS}, ${ERC20_HOME_C_CHAIN}, 0, 0, 250000, 0x0000000000000000000000000000000000000000)" 10000000000000000
+```
+
+## Step 6: Verify Balances
+
+Check your USDC balance on the subnet:
+
+```bash
+cast balance --rpc-url mysubnet $FUNDED_ADDRESS
+```
+
+Check your USDC balance on c-chain:
+
+```bash
+cast call --rpc-url local-c $ERC20_HOME_C_CHAIN "balanceOf(address)(uint256)" $FUNDED_ADDRESS
+```
+
+## Step 7: Testing Apparatus
+
+### Testing Scripts
+
+Two main scripts for testing:
+
+1. `teleport-native-to-usdc.js`: Teleports native tokens from L1 subnet to USDC on C-Chain
+2. `teleport-usdc-to-native.js`: Teleports USDC from C-Chain to native tokens on L1 subnet
+
+### Prerequisites
+
+- Node.js (v18 or later recommended)
+- npm or yarn
+- Funded wallet with sufficient USDC and native tokens
+
+### Setup
+
+1. Clone the repository and install dependencies:
+
+```bash
+git clone https://github.com/XKOVA/ICTT-USDC-NATIVE-BRIDGE
+cd ictt-teleporter-usdc-native-bridge
+npm install
+```
+
+2. Create a `.env` file with necessary variables (see repo README for details)
+
+Be sure to set the correct RPC URLs and private keys. For local testing, you can use the Avalanche CLI-provided RPC URLs and private keys.
+
+### Running the Scripts
+
+1. Teleport Native Tokens to USDC:
+
+```bash
+node teleport-native-to-usdc.js
+```
+
+This script teleports native tokens from an Avalanche L1 blockchain to USDC on the C-Chain. Here's a breakdown of the key components:
+
+```javascript
+// Function to send a teleport transaction
+async function sendTeleportTransaction(privateKey, amount) {
+  const wallet = new ethers.Wallet(privateKey, remoteProvider);
+  const contract = new ethers.Contract(NATIVE_TOKEN_REMOTE_SUBNET, NATIVE_TOKEN_REMOTE_SUBNET_ABI, wallet);
+
+  // Data required for the teleport transaction ie: NativeTokenRemote.sol
+  const teleportData = [
+    C_CHAIN_BLOCKCHAIN_ID_HEX, // Blockchain ID of the C-Chain
+    ERC20_HOME_TRANSFERER_C_CHAIN, // Address of the ERC20 token transferer on the C-Chain
+    FUNDED_ADDRESS, // Address that will receive the tokens
+    ethers.constants.AddressZero, // Address of the token to be transferred (zero address for native token)
+    0, // Amount of tokens to be transferred (0 for native token)
+    0, // Fee amount (0 for no fee)
+    250000, // Gas limit for the transaction
+    ethers.constants.AddressZero, // Address to receive the fee (zero address for no fee)
+  ];
+
+  try {
+    const amountInWei = ethers.utils.parseEther(amount.toString());
+    const tx = await contract.send(teleportData, { value: amountInWei });
+    const receipt = await tx.wait();
+    return { receipt, gasUsed: receipt.gasUsed };
+  } catch (error) {
+    throw error;
+  }
+}
+```
+
+This function sets up the teleport transaction, including the necessary data for the NativeTokenRemote.sol contract. It then sends the transaction and returns the receipt and gas used.
+
+2. Teleport USDC to Native Tokens:
+
+```bash
+node teleport-usdc-to-native.js
+```
+
+This script teleports USDC from the C-Chain to native tokens on an Avalanche L1 blockchain. Here's a breakdown of the key components:
+
+```javascript
+// Function to send a teleport transaction
+async function sendTeleportTransaction(privateKey, amount) {
+  const wallet = new ethers.Wallet(privateKey, provider);
+  const contract = new ethers.Contract(ERC20_HOME_TRANSFERER_C_CHAIN, ERC20_HOME_TRANSFERER_C_CHAIN_ABI, wallet);
+
+  // Data required for the teleport transaction ie: ERC20TokenHome.sol
+  const teleportData = [
+    SUBNET_BLOCKCHAIN_ID_HEX, // Blockchain ID of the Subnet
+    NATIVE_TOKEN_REMOTE_SUBNET, // Address of the native token on the remote subnet
+    FUNDED_ADDRESS, // Address that will receive the tokens
+    ERC20_HOME_C_CHAIN, // Address of the token to be transferred
+    0, // Amount of tokens to be transferred (0 for native token)
+    0, // Fee amount (0 for no fee)
+    250000, // Gas limit for the transaction
+    ethers.constants.AddressZero, // Address to receive the fee (zero address for no fee)
+  ];
+
+  try {
+    const tx = await contract.send(teleportData, ethers.utils.parseUnits(amount.toString(), 6));
+    const receipt = await tx.wait();
+    return {
+      transactionHash: receipt.transactionHash,
+      gasUsed: receipt.gasUsed,
+      effectiveGasPrice: receipt.effectiveGasPrice,
+    };
+  } catch (error) {
+    console.error('Transaction failed:', error);
+    throw error;
+  }
+}
+```
+
+## Teleport Transaction Setup
+
+This function sets up the teleport transaction for the `ERC20TokenHome.sol` contract. It:
+
+- Sends the transaction
+- Returns the transaction hash, gas used, and effective gas price
+
+### Additional Functionality in Both Scripts
+
+Both scripts include:
+
+- Checking initial and final balances
+- Calculating and logging balance changes
+- Waiting for transaction confirmation
+- Error handling and logging
+
+### Effective Usage of Scripts
+
+To use these scripts effectively:
+
+1. Ensure all environment variables are correctly set in your `.env` file.
+2. Make sure you have sufficient token balances for the transactions.
+3. Adjust the `WAIT_TIME_MS` constant if needed to account for network congestion.
+4. Monitor the console output for:
+   - Detailed transaction information
+   - Any error messages
+
+### Troubleshooting
+
+- Double-check environment variables
+- Ensure sufficient token balances
+- Read console output for detailed error messages
+- Adjust `WAIT_TIME_MS` if transactions are slow
+
+**Security Note**: Never commit your private key to version control!
+
+## Conclusion
+
+You've now created an Avalanche L1 that uses USDC as its native gas token. This setup combines the flexibility of Avalanche subnets with the stability of USDC, providing a user-friendly and predictable gas system for your decentralized applications.
