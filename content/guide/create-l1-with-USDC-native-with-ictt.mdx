@@ -47,7 +47,7 @@ Now that you have the prerequisites set up, let's proceed with creating an Avala
 
 Using USDC as a gas token offers two main advantages:
 
-1. **Stability**: As a stablecoin, gas values are stable.
+1. **Stability**: Helps prevent cost spikes due to token price fluctuations.
 2. **Familiarity**: Users already familiar with USDC will find it intuitive.
 
 ## Step 1: Set Up a Subnet
@@ -60,7 +60,7 @@ avalanche blockchain create mysubnet
 
 Important considerations with local testnets:
 
-- For local testing, teleporter contracts are depoloyed by default
+- For local testing, teleporter contracts are deployed by default
 - A AWM Relayer will be provided by the Avalanche CLI
 - Configure airdrop tokens (100 tokens to the default ewoq address is good for USDC Native Bridge testing)
 - Enable Native Minter Precompile for your admin address
@@ -69,7 +69,7 @@ After deployment, you'll see output similar to:
 
 ```bash
 ✔ Subnet-EVM
-✔ I don't want to use default values
+✔ I don&#39;t want to use default values
 ✔ Use latest release version
 Chain ID: 12345
 Token Symbol: USDC
@@ -172,8 +172,8 @@ Network ready to use.
 
 Deploying Blockchain. Wait until network acknowledges...
 
-Teleporter Messenger successfully deployed to c-chain (0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf)
-Teleporter Registry successfully deployed to c-chain (0x17aB05351fC94a1a67Bf3f56DdbB941aE6c63E25)
+Teleporter Messenger successfully deployed to C-Chain (0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf)
+Teleporter Registry successfully deployed to C-Chain (0x17aB05351fC94a1a67Bf3f56DdbB941aE6c63E25)
 
 Teleporter Messenger successfully deployed to mysubnet (0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf)
 Teleporter Registry successfully deployed to mysubnet (0x3C4ac42e719716C49A0c03713A31738aeB1C7eF2)
@@ -288,20 +288,20 @@ via the precompile. Use readAllowList(address) instead.
 From this output, take note of the following parameters
 
 - Funded Address (with 10 tokens),
-- Teleporter Registry on C-chain, and
+- Teleporter Registry on C-Chain , and
 - Teleporter Registry on Subnet
 
 Set these parameters as environment variables so that we can manage them easily and also use them in the commands later.
 
 ```bash
 export FUNDED_ADDRESS=<Funded Address (with 10 tokens)>
-export TELEPORTER_REGISTRY_C_CHAIN=<Teleporter Registry on C-chain>
+export TELEPORTER_REGISTRY_C_CHAIN=<Teleporter Registry on C-Chain >
 export TELEPORTER_REGISTRY_SUBNET=<Teleporter Registry on Subnet>
 ```
 
-## Deploy ERC20 (USDC Example) Contract on C-chain
+## Deploy ERC20 (USDC Example) Contract on C-Chain
 
-First step is to deploy the ERC20 contract. We are using OZs example contract here and the contract is renamed to `ERC20.sol` for convenience. On Mainnet or Fuji tesnet you would use the Circle USDC contract address. For the purposes of this tutorial we will deploy an example ERC20 contract that resembles the important specificactions (6 deicmals) of the USDC ERC20 contract.
+First step is to deploy the ERC20 contract. We are using the OpenZeppelin example contract here, and the contract is renamed to `ERC20.sol` for convenience. On Mainnet or Fuji tesnet you would use the Circle USDC contract address. For the purposes of this tutorial we will deploy an example ERC20 contract that resembles the important specifications (6 decimals) of the USDC ERC20 contract.
 
 ```bash
 forge create --rpc-url local-c --private-key $PK src/11-usdc-to-native-interchain-token-transfer/ERC20.sol:USDC
@@ -321,7 +321,7 @@ cast call --rpc-url local-c --private-key $PK $ERC20_HOME_C_CHAIN "balanceOf(add
 
 ## Deploy Avalanche Interchain Token Transfer Contracts
 
-We will deploy two Avalanche Interchain Token Transfer contracts. One of the source chain (which is C-chain in our case) and another on the destination chain (mysubnet in our case).
+We will deploy two Avalanche Interchain Token Transfer contracts. One on the source chain (which is C-Chain in our case) and another on the destination chain (mysubnet in our case).
 
 ### ERC20Home Contract
 
@@ -329,7 +329,7 @@ We will deploy two Avalanche Interchain Token Transfer contracts. One of the sou
 forge create --rpc-url local-c --private-key $PK lib/avalanche-interchain-token-transfer/contracts/src/TokenHome/ERC20TokenHome.sol:ERC20TokenHome --constructor-args $TELEPORTER_REGISTRY_C_CHAIN $FUNDED_ADDRESS $ERC20_HOME_C_CHAIN 6
 ```
 
-Export the "Deployed to" address as an environment variables.
+Export the "Deployed to" address as an environment variable.
 
 ```bash
 export ERC20_HOME_TRANSFERER_C_CHAIN=<"Deployed to" address>
@@ -355,7 +355,7 @@ forge create --rpc-url mysubnet --private-key $PK lib/avalanche-interchain-token
 "($TELEPORTER_REGISTRY_SUBNET,$FUNDED_ADDRESS,$C_CHAIN_BLOCKCHAIN_ID_HEX,$ERC20_HOME_TRANSFERER_C_CHAIN,6)" "USDC" 9000000000000000000 0
 ```
 
-Export the "Deployed to" address as an environment variables.
+Export the "Deployed to" address as an environment variable.
 
 ```bash
 export NATIVE_TOKEN_REMOTE_SUBNET=<"Deployed to" address>
@@ -363,7 +363,7 @@ export NATIVE_TOKEN_REMOTE_SUBNET=<"Deployed to" address>
 
 ### Granting Native Minting Rights to NativeTokenRemote Contract
 
-In order to mint native tokens on Subnet when received from the C-chain, the NativeTokenRemote contract must have minting rights. We pre-initialized the Native Minter Precompile with an admin address owned by us. We can use our rights to add this contract address as one of the enabled addresses in the precompile.
+In order to mint native tokens on Subnet when received from the C-Chain , the NativeTokenRemote contract must have minting rights. We pre-initialized the Native Minter Precompile with an admin address owned by us. We can use our rights to add this contract address as one of the enabled addresses in the precompile.
 
 _Note: Native Minter Precompile Address = 0x0200000000000000000000000000000000000001_
 
@@ -375,7 +375,7 @@ cast send --rpc-url mysubnet --private-key $PK 0x0200000000000000000000000000000
 
 ## Register Remote Token with Home Transferer
 
-After deploying the Transferer contracts, you'll need to register the Remote token by sending a dummy message using the `registerWithHome` method. This message includes details which inform the home Transferer about your destination blockchain and settings, eg. `initialReserveImbalance`.
+After deploying the Transferer contracts, you'll need to register the Remote token by sending a dummy message using the `registerWithHome` method. This message includes details which inform the Home Transferer about your destination blockchain and settings, eg. `initialReserveImbalance`.
 
 ```bash
 cast send --rpc-url mysubnet --private-key $PK $NATIVE_TOKEN_REMOTE_SUBNET "registerWithHome((address, uint256))" "(0x0000000000000000000000000000000000000000, 0)"
@@ -395,17 +395,17 @@ avalanche teleporter relayer logs
 
 ## Add Collateral and Start Sending Tokens
 
-If you followed the instructions correctly, you should have noticed that we minted a supply of 10 USDC tokens on our Subnet. This increases the total supply of USDC token and its wrapped counterparts. We first need to collateralize the Home Transferer by sending an amount equivalent to `initialReserveImbalance` to the destination subnet from the C-chain. Note that this amount will not be minted on the mysubnet so we recommend sending exactly an amount equal to `initialReserveImbalance`.
+If you followed the instructions correctly, you should have noticed that we minted a supply of 10 USDC tokens on our Subnet. This increases the total supply of USDC token and its wrapped counterparts. We first need to collateralize the Home Transferer by sending an amount equivalent to `initialReserveImbalance` to the destination subnet from the C-Chain . Note that this amount will not be minted on the subnet so it is recommended to send exactly an amount equal to `initialReserveImbalance`.
 
 So the course of action in this section would be:
 
 - Approve 9 USDC tokens for the Home Transferer contract to use them
 - Call the `addCollateral` method on Home Transferer contract and send 9 USDC tokens to the remote contract
-- Send 1 USDC tokens from c-chain to your address on the Subnet and check your new balance
+- Send 1 USDC tokens from C-Chain to your address on the Subnet and check your new balance
 
 ### Approve tokens for the Home Transferer contract
 
-You can increase/decrease the numbers here as per your requirements. (All values are mentioned in wei)
+You can increase/decrease the numbers here as per your requirements. (All values are in wei)
 
 ```bash
 cast send --rpc-url local-c --private-key $PK $ERC20_HOME_C_CHAIN "approve(address, uint256)" $ERC20_HOME_TRANSFERER_C_CHAIN 9000000
@@ -413,7 +413,7 @@ cast send --rpc-url local-c --private-key $PK $ERC20_HOME_C_CHAIN "approve(addre
 
 ### Add Collateral
 
-Since we had an `initialReserveImbalance` of 9 USDC tokens on mysubnet, we'll send 9 tokens from our side via the transferer contract. (All values are mentioned in wei)
+Since we had an `initialReserveImbalance` of 9 USDC tokens on mysubnet, we'll send 9 tokens from our side via the transferer contract. (All values are in wei)
 
 ```bash
 cast send --rpc-url local-c --private-key $PK $ERC20_HOME_TRANSFERER_C_CHAIN "addCollateral(bytes32, address, uint256)" $SUBNET_BLOCKCHAIN_ID_HEX $NATIVE_TOKEN_REMOTE_SUBNET 9000000
@@ -427,13 +427,13 @@ cast call --rpc-url mysubnet $NATIVE_TOKEN_REMOTE_SUBNET "isCollateralized()(boo
 
 ### Send Tokens Cross Chain
 
-Now, send 1 USDC tokens to the destination chain on your funded address. (All values are mentioned in wei)
+Now, send 1 USDC tokens to the destination chain on your funded address. (All values are in wei)
 
 ```bash
 cast send --rpc-url local-c --private-key $PK $ERC20_HOME_TRANSFERER_C_CHAIN "send((bytes32, address, address, address, uint256, uint256, uint256, address), uint256)" "(${SUBNET_BLOCKCHAIN_ID_HEX}, ${NATIVE_TOKEN_REMOTE_SUBNET}, ${FUNDED_ADDRESS}, ${ERC20_HOME_C_CHAIN}, 0, 0, 250000, 0x0000000000000000000000000000000000000000)" 1000000
 ```
 
-TIP: When sending tokens cross-chain, amount in wei on c-chain is 6 decimals, the emount in wei on the subnet is 18 decimals.
+TIP: When sending tokens cross-chain, amount in wei on C-Chain is 6 decimals, the amount in wei on the subnet is 18 decimals.
 
 ## Check Balances
 
@@ -441,7 +441,7 @@ TIP: When sending tokens cross-chain, amount in wei on c-chain is 6 decimals, th
 cast balance --rpc-url mysubnet $FUNDED_ADDRESS
 ```
 
-You can check your USDC balance on the c-chain by running the below command:
+You can check your USDC balance on the C-Chain by running the below command:
 
 ```bash
 cast call --rpc-url local-c $ERC20_HOME_C_CHAIN "balanceOf(address)(uint256)" $FUNDED_ADDRESS
@@ -453,8 +453,8 @@ cast call --rpc-url local-c $ERC20_HOME_C_CHAIN "balanceOf(address)(uint256)" $F
 
 Two main scripts for testing:
 
-1. `teleport-native-to-usdc.js`: Teleports native tokens from L1 subnet to USDC on C-Chain
-2. `teleport-usdc-to-native.js`: Teleports USDC from C-Chain to native tokens on L1 subnet
+1. `teleport-native-to-usdc.js`: Teleports native tokens from the subnet to USDC on C-Chain
+2. `teleport-usdc-to-native.js`: Teleports USDC from C-Chain to native tokens on the subnet
 
 ### Prerequisites
 
